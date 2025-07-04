@@ -170,7 +170,6 @@
       ref,
       onValue,
       set,
-      push,
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -191,7 +190,23 @@
     let marcadores = {};
     let usuarioLogado = null;
 
-    // FUNÇÕES GLOBAIS PARA BOTÕES
+    // Ícones para estado online e offline
+    const iconOnline = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    });
+    const iconOffline = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/1828/1828665.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    });
+
+    // Tempo para considerar offline (5 minutos)
+    const TEMPO_OFFLINE_MS = 5 * 60 * 1000;
+
     window.entrar = () => {
       const email = document.getElementById("email").value.trim();
       const senha = document.getElementById("senha").value.trim();
@@ -316,7 +331,6 @@
       alert("Comando de bloqueio enviado (funcionalidade futura).");
     };
 
-    // Inicializa mapa Leaflet
     function iniciarMapa() {
       mapa = L.map("mapa").setView([-23.443, -51.9333], 13);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -324,13 +338,11 @@
       }).addTo(mapa);
     }
 
-    // Remove todos os marcadores do mapa
     function limparMarcadores() {
       Object.values(marcadores).forEach((m) => mapa.removeLayer(m));
       marcadores = {};
     }
 
-    // Carrega veículos do usuário e monitora localizações
     function carregarVeiculos() {
       if (!usuarioLogado) return;
 
@@ -360,23 +372,22 @@
               }
 
               const latlng = [pos.lat, pos.lng];
+              const agora = Date.now();
+              const offline = agora - pos.timestamp > TEMPO_OFFLINE_MS;
+
+              // Cria ou atualiza marcador com ícone diferente para offline
               if (!marcadores[placa]) {
-                marcadores[placa] = L.marker(latlng)
+                marcadores[placa] = L.marker(latlng, { icon: offline ? iconOffline : iconOnline })
                   .addTo(mapa)
                   .bindPopup(
-                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
-                      dados.status || "desconhecido"
-                    }`
+                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${dados.status || "desconhecido"}<br>Última atualização: ${new Date(pos.timestamp).toLocaleString()}`
                   );
               } else {
                 marcadores[placa].setLatLng(latlng);
-                marcadores[placa]
-                  .getPopup()
-                  .setContent(
-                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
-                      dados.status || "desconhecido"
-                    }`
-                  );
+                marcadores[placa].setIcon(offline ? iconOffline : iconOnline);
+                marcadores[placa].getPopup().setContent(
+                  `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${dados.status || "desconhecido"}<br>Última atualização: ${new Date(pos.timestamp).toLocaleString()}`
+                );
               }
             },
             { onlyOnce: false }
@@ -387,10 +398,9 @@
       });
     }
 
-    // Atualiza a lista de veículos na lateral
     function atualizarListaVeiculos(veiculos) {
       const container = document.getElementById("listaVeiculos");
-      container.innerHTML = ""; // limpa lista
+      container.innerHTML = "";
 
       if (!veiculos || Object.keys(veiculos).length === 0) {
         container.innerHTML = "<p>Nenhum veículo cadastrado.</p>";
@@ -415,7 +425,6 @@
       });
     }
 
-    // Mostra todos veículos no mapa
     function mostrarTodosVeiculos() {
       const grupo = L.featureGroup(Object.values(marcadores));
       if (grupo.getLayers().length === 0) {
@@ -426,7 +435,6 @@
     }
     window.mostrarTodosVeiculos = mostrarTodosVeiculos;
 
-    // Monitora estado de autenticação para logout automático
     onAuthStateChanged(auth, (user) => {
       if (!user) {
         usuarioLogado = null;
