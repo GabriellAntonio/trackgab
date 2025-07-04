@@ -51,6 +51,7 @@
       getDatabase,
       ref,
       set,
+      push
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -121,13 +122,12 @@
           }).catch((err) => {
             console.error("Erro ao enviar localização:", err);
           });
-		  import { push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-push(ref(db, `historico/${placa}`), {
-  lat: latitude,
-  lng: longitude,
-  timestamp,
-});
+          push(ref(db, `historico/${placa}`), {
+            lat: latitude,
+            lng: longitude,
+            timestamp,
+          });
         },
         (err) => {
           alert("Erro ao obter localização: " + err.message);
@@ -140,7 +140,6 @@ push(ref(db, `historico/${placa}`), {
       );
     }
 
-    // Para segurança, pode deslogar automaticamente se quiser:
     onAuthStateChanged(auth, (u) => {
       if (!u) {
         if (watchId !== null) {
