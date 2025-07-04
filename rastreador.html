@@ -121,6 +121,13 @@
           }).catch((err) => {
             console.error("Erro ao enviar localização:", err);
           });
+		  import { push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+push(ref(db, `historico/${placa}`), {
+  lat: latitude,
+  lng: longitude,
+  timestamp,
+});
         },
         (err) => {
           alert("Erro ao obter localização: " + err.message);
