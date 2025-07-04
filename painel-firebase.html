@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -104,6 +104,19 @@
       z-index: 999;
       width: 250px;
     }
+    #listaVeiculos {
+      position: absolute;
+      top: 60px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: white;
+      z-index: 1000;
+      width: 200px;
+    }
   </style>
 </head>
 <body>
@@ -119,15 +132,17 @@
     <div class="botoes">
       <button onclick="localizar()">📍 Localizar Agora</button>
       <button onclick="mostrarHistorico()">🗺️ Histórico</button>
+      <button onclick="mostrarTodosVeiculos()">🗺️ Mostrar Todos</button>
       <button onclick="toggleCadastro()">➕ Cadastrar Veículo</button>
       <button onclick="bloquear()">🔒 Bloquear Motor</button>
       <button onclick="sair()">🚪 Sair</button>
     </div>
     
-<div id="historico">
-    <ul id="listaHistorico" style="padding-left: 20px; margin: 0;"></ul>
-  </div>
+    <div id="historico">
+      <ul id="listaHistorico" style="padding-left: 20px; margin: 0;"></ul>
+    </div>
 
+    <div id="listaVeiculos"></div>
 
     <div id="cadastro">
       <h3>Cadastrar Veículo</h3>
@@ -155,13 +170,9 @@
       ref,
       onValue,
       set,
-      get,
-      child,
       push,
-      remove,
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // Configuração do Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBgsdrn_Smo4wfTamRKnBzF2eLJ89MKI2Q",
       authDomain: "trackgab-1c2a7.firebaseapp.com",
@@ -180,7 +191,7 @@
     let marcadores = {};
     let usuarioLogado = null;
 
-    // Função login
+    // FUNÇÕES GLOBAIS PARA BOTÕES
     window.entrar = () => {
       const email = document.getElementById("email").value.trim();
       const senha = document.getElementById("senha").value.trim();
@@ -205,7 +216,6 @@
         });
     };
 
-    // Função logout
     window.sair = () => {
       signOut(auth).then(() => {
         usuarioLogado = null;
@@ -215,77 +225,6 @@
       });
     };
 
-    // Inicializa o mapa Leaflet
-    function iniciarMapa() {
-      mapa = L.map("mapa").setView([-23.443, -51.9333], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-      }).addTo(mapa);
-    }
-
-    // Limpa todos os marcadores do mapa
-    function limparMarcadores() {
-      Object.values(marcadores).forEach((m) => mapa.removeLayer(m));
-      marcadores = {};
-    }
-
-    // Carrega veículos do usuário logado e monitora localizações
-    function carregarVeiculos() {
-      if (!usuarioLogado) return;
-
-      const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}`);
-      onValue(veiculosRef, (snapshot) => {
-        const veiculos = snapshot.val();
-        if (!veiculos) {
-          limparMarcadores();
-          return;
-        }
-
-        limparMarcadores();
-
-        Object.entries(veiculos).forEach(([placa, dados]) => {
-          // Para cada veículo, monitora localização em tempo real
-          const locRef = ref(db, `localizacoes/${placa}`);
-          onValue(
-            locRef,
-            (snap) => {
-              const pos = snap.val();
-              if (!pos) {
-                if (marcadores[placa]) {
-                  mapa.removeLayer(marcadores[placa]);
-                  delete marcadores[placa];
-                }
-                return;
-              }
-
-              const latlng = [pos.lat, pos.lng];
-              if (!marcadores[placa]) {
-                marcadores[placa] = L.marker(latlng)
-                  .addTo(mapa)
-                  .bindPopup(
-                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
-                      dados.status || "desconhecido"
-                    }`
-                  );
-              } else {
-                marcadores[placa].setLatLng(latlng);
-                // Atualiza popup caso queira
-                marcadores[placa]
-                  .getPopup()
-                  .setContent(
-                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
-                      dados.status || "desconhecido"
-                    }`
-                  );
-              }
-            },
-            { onlyOnce: false }
-          );
-        });
-      });
-    }
-
-    // Botão Localizar (centraliza no primeiro marcador)
     window.localizar = () => {
       const keys = Object.keys(marcadores);
       if (keys.length === 0) {
@@ -297,50 +236,46 @@
       marcadores[keys[0]].openPopup();
     };
 
-window.mostrarHistorico = () => {
-  const h = document.getElementById("historico");
-  h.style.display = h.style.display === "none" ? "block" : "none";
+    window.mostrarHistorico = () => {
+      const h = document.getElementById("historico");
+      h.style.display = h.style.display === "none" ? "block" : "none";
 
-  const lista = document.getElementById("listaHistorico");
-  lista.innerHTML = "";
+      const lista = document.getElementById("listaHistorico");
+      lista.innerHTML = "";
 
-  const placas = Object.keys(marcadores);
-  if (placas.length === 0) {
-    lista.innerHTML = "<li>Nenhum veículo disponível.</li>";
-    return;
-  }
+      const placas = Object.keys(marcadores);
+      if (placas.length === 0) {
+        lista.innerHTML = "<li>Nenhum veículo disponível.</li>";
+        return;
+      }
 
-  const placa = placas[0]; // usa a primeira placa do usuário
-  const histRef = ref(db, `historico/${placa}`);
+      const placa = placas[0];
+      const histRef = ref(db, `historico/${placa}`);
 
-  onValue(histRef, (snap) => {
-    const dados = snap.val();
-    lista.innerHTML = "";
+      onValue(histRef, (snap) => {
+        const dados = snap.val();
+        lista.innerHTML = "";
 
-    if (!dados) {
-      lista.innerHTML = "<li>Sem registros no histórico.</li>";
-      return;
-    }
+        if (!dados) {
+          lista.innerHTML = "<li>Sem registros no histórico.</li>";
+          return;
+        }
 
-    // Mostra do mais recente para o mais antigo
-    const entradas = Object.values(dados).sort((a, b) => b.timestamp - a.timestamp);
+        const entradas = Object.values(dados).sort((a, b) => b.timestamp - a.timestamp);
 
-    entradas.forEach((item) => {
-      const data = new Date(item.timestamp);
-      const horario = data.toLocaleString("pt-BR");
-      lista.innerHTML += `<li>${horario} - (${item.lat.toFixed(5)}, ${item.lng.toFixed(5)})</li>`;
-    });
-  });
-};
+        entradas.forEach((item) => {
+          const data = new Date(item.timestamp);
+          const horario = data.toLocaleString("pt-BR");
+          lista.innerHTML += `<li>${horario} - (${item.lat.toFixed(5)}, ${item.lng.toFixed(5)})</li>`;
+        });
+      });
+    };
 
-
-    // Botão cadastrar veículo (toggle painel)
     window.toggleCadastro = () => {
       const c = document.getElementById("cadastro");
       c.style.display = c.style.display === "none" ? "block" : "none";
     };
 
-    // Salvar cadastro no Firebase
     window.salvarCadastro = () => {
       const placa = document.getElementById("placa").value.trim().toUpperCase();
       const modelo = document.getElementById("modelo").value.trim();
@@ -377,12 +312,121 @@ window.mostrarHistorico = () => {
         });
     };
 
-    // Botão bloquear (simples alerta)
     window.bloquear = () => {
       alert("Comando de bloqueio enviado (funcionalidade futura).");
     };
 
-    // Escuta autenticação para logout automático e controle de interface
+    // Inicializa mapa Leaflet
+    function iniciarMapa() {
+      mapa = L.map("mapa").setView([-23.443, -51.9333], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(mapa);
+    }
+
+    // Remove todos os marcadores do mapa
+    function limparMarcadores() {
+      Object.values(marcadores).forEach((m) => mapa.removeLayer(m));
+      marcadores = {};
+    }
+
+    // Carrega veículos do usuário e monitora localizações
+    function carregarVeiculos() {
+      if (!usuarioLogado) return;
+
+      const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}`);
+      onValue(veiculosRef, (snapshot) => {
+        const veiculos = snapshot.val();
+        if (!veiculos) {
+          limparMarcadores();
+          atualizarListaVeiculos(null);
+          return;
+        }
+
+        limparMarcadores();
+
+        Object.entries(veiculos).forEach(([placa, dados]) => {
+          const locRef = ref(db, `localizacoes/${placa}`);
+          onValue(
+            locRef,
+            (snap) => {
+              const pos = snap.val();
+              if (!pos) {
+                if (marcadores[placa]) {
+                  mapa.removeLayer(marcadores[placa]);
+                  delete marcadores[placa];
+                }
+                return;
+              }
+
+              const latlng = [pos.lat, pos.lng];
+              if (!marcadores[placa]) {
+                marcadores[placa] = L.marker(latlng)
+                  .addTo(mapa)
+                  .bindPopup(
+                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
+                      dados.status || "desconhecido"
+                    }`
+                  );
+              } else {
+                marcadores[placa].setLatLng(latlng);
+                marcadores[placa]
+                  .getPopup()
+                  .setContent(
+                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
+                      dados.status || "desconhecido"
+                    }`
+                  );
+              }
+            },
+            { onlyOnce: false }
+          );
+        });
+
+        atualizarListaVeiculos(veiculos);
+      });
+    }
+
+    // Atualiza a lista de veículos na lateral
+    function atualizarListaVeiculos(veiculos) {
+      const container = document.getElementById("listaVeiculos");
+      container.innerHTML = ""; // limpa lista
+
+      if (!veiculos || Object.keys(veiculos).length === 0) {
+        container.innerHTML = "<p>Nenhum veículo cadastrado.</p>";
+        return;
+      }
+
+      Object.entries(veiculos).forEach(([placa, dados]) => {
+        const btn = document.createElement("button");
+        btn.textContent = `${placa} - ${dados.modelo || ""}`;
+        btn.style.width = "100%";
+        btn.style.marginBottom = "6px";
+        btn.style.cursor = "pointer";
+        btn.onclick = () => {
+          if (marcadores[placa]) {
+            mapa.setView(marcadores[placa].getLatLng(), 17);
+            marcadores[placa].openPopup();
+          } else {
+            alert("Localização do veículo ainda não disponível.");
+          }
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // Mostra todos veículos no mapa
+    function mostrarTodosVeiculos() {
+      const grupo = L.featureGroup(Object.values(marcadores));
+      if (grupo.getLayers().length === 0) {
+        alert("Nenhum veículo para mostrar.");
+        return;
+      }
+      mapa.fitBounds(grupo.getBounds().pad(0.2));
+    }
+    window.mostrarTodosVeiculos = mostrarTodosVeiculos;
+
+    // Monitora estado de autenticação para logout automático
     onAuthStateChanged(auth, (user) => {
       if (!user) {
         usuarioLogado = null;
