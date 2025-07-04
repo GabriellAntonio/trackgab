@@ -124,14 +124,6 @@
       <button onclick="sair()">🚪 Sair</button>
     </div>
 
-    <div id="historico">
-      <h4>Histórico:</h4>
-      <ul id="listaHistorico">
-        <li>03/07 - 10:22 - Av. Brasil, Maringá</li>
-        <li>03/07 - 10:55 - Av. Colombo, Maringá</li>
-        <li>03/07 - 11:15 - Rodovia PR-317</li>
-      </ul>
-    </div>
 
     <div id="cadastro">
       <h3>Cadastrar Veículo</h3>
@@ -301,11 +293,42 @@
       marcadores[keys[0]].openPopup();
     };
 
-    // Botão Histórico (simples toggle)
-    window.mostrarHistorico = () => {
-      const h = document.getElementById("historico");
-      h.style.display = h.style.display === "none" ? "block" : "none";
-    };
+window.mostrarHistorico = () => {
+  const h = document.getElementById("historico");
+  h.style.display = h.style.display === "none" ? "block" : "none";
+
+  const lista = document.getElementById("listaHistorico");
+  lista.innerHTML = "";
+
+  const placas = Object.keys(marcadores);
+  if (placas.length === 0) {
+    lista.innerHTML = "<li>Nenhum veículo disponível.</li>";
+    return;
+  }
+
+  const placa = placas[0]; // usa a primeira placa do usuário
+  const histRef = ref(db, `historico/${placa}`);
+
+  onValue(histRef, (snap) => {
+    const dados = snap.val();
+    lista.innerHTML = "";
+
+    if (!dados) {
+      lista.innerHTML = "<li>Sem registros no histórico.</li>";
+      return;
+    }
+
+    // Mostra do mais recente para o mais antigo
+    const entradas = Object.values(dados).sort((a, b) => b.timestamp - a.timestamp);
+
+    entradas.forEach((item) => {
+      const data = new Date(item.timestamp);
+      const horario = data.toLocaleString("pt-BR");
+      lista.innerHTML += `<li>${horario} - (${item.lat.toFixed(5)}, ${item.lng.toFixed(5)})</li>`;
+    });
+  });
+};
+
 
     // Botão cadastrar veículo (toggle painel)
     window.toggleCadastro = () => {
