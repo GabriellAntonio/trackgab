@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>TrackGab - Rastreador</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+    }
+    input, button {
+      padding: 10px;
+      margin: 8px;
+      width: 90%;
+      max-width: 300px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
+    button {
+      background-color: #14e085;
+      border: none;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h2>TrackGab - Rastreador</h2>
+  <input type="email" id="email" placeholder="Email" />
+  <input type="password" id="senha" placeholder="Senha" />
+  <input type="text" id="placa" placeholder="Placa do veículo (ex: ABC1234)" />
+  <button onclick="login()">Entrar e Iniciar Rastreamento</button>
+  <div id="status"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBgsdrn_Smo4wfTamRKnBzF2eLJ89MKI2Q",
+      authDomain: "trackgab-1c2a7.firebaseapp.com",
+      projectId: "trackgab-1c2a7",
+      storageBucket: "trackgab-1c2a7.firebasestorage.app",
+      messagingSenderId: "999981691269",
+      appId: "1:999981691269:web:c1122c8d955b0d92aed4ec",
+      databaseURL: "https://trackgab-1c2a7-default-rtdb.firebaseio.com",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getDatabase();
+
+    let user = null;
+    let placa = null;
+    let watchId = null;
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const senha = document.getElementById("senha").value.trim();
+      placa = document.getElementById("placa").value.trim().toUpperCase();
+      const status = document.getElementById("status");
+
+      status.style.color = "black";
+      status.textContent = "";
+
+      if (!email || !senha || !placa) {
+        status.style.color = "red";
+        status.textContent = "Preencha todos os campos!";
+        return;
+      }
+
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, senha);
+        user = cred.user;
+        status.style.color = "green";
+        status.textContent = "Login realizado! Iniciando rastreamento...";
+
+        startTracking();
+      } catch (e) {
+        status.style.color = "red";
+        status.textContent = "Erro no login: " + e.message;
+      }
+    }
+
+    function startTracking() {
+      if (!navigator.geolocation) {
+        alert("Geolocalização não suportada pelo navegador.");
+        return;
+      }
+
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const timestamp = Date.now();
+
+          set(ref(db, `localizacoes/${placa}`), {
+            lat: latitude,
+            lng: longitude,
+            timestamp,
+          }).catch((err) => {
+            console.error("Erro ao enviar localização:", err);
+          });
+        },
+        (err) => {
+          alert("Erro ao obter localização: " + err.message);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 3000,
+          timeout: 10000,
+        }
+      );
+    }
+
+    // Para segurança, pode deslogar automaticamente se quiser:
+    onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        document.getElementById("status").textContent = "Usuário deslogado.";
+      }
+    });
+
+    window.login = login;
+  </script>
+</body>
+</html>

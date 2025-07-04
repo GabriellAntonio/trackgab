@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>TrackGab - Painel Firebase</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #login {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    #login input,
+    #login button {
+      margin: 8px;
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      width: 220px;
+    }
+    #login button {
+      background-color: #14e085;
+      font-weight: bold;
+      cursor: pointer;
+      color: #000;
+    }
+    #status {
+      color: #f88;
+      height: 20px;
+      margin-top: 5px;
+    }
+    #painel {
+      flex: 1;
+      position: relative;
+      display: none;
+    }
+    #mapa {
+      width: 100%;
+      height: 100%;
+    }
+    .botoes {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 999;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .botoes button {
+      padding: 8px 12px;
+      background-color: #00e087;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #000;
+    }
+    #cadastro {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      display: none;
+      z-index: 999;
+      width: 280px;
+      color: white;
+    }
+    #cadastro input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border: none;
+    }
+    #historico {
+      position: absolute;
+      top: 70px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      max-height: 200px;
+      overflow-y: auto;
+      color: white;
+      z-index: 999;
+      width: 250px;
+    }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h2>TrackGab - Login</h2>
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="senha" placeholder="Senha" />
+    <button onclick="entrar()">Entrar</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="painel">
+    <div class="botoes">
+      <button onclick="localizar()">📍 Localizar Agora</button>
+      <button onclick="mostrarHistorico()">🗺️ Histórico</button>
+      <button onclick="toggleCadastro()">➕ Cadastrar Veículo</button>
+      <button onclick="bloquear()">🔒 Bloquear Motor</button>
+      <button onclick="sair()">🚪 Sair</button>
+    </div>
+
+    <div id="historico">
+      <h4>Histórico:</h4>
+      <ul id="listaHistorico">
+        <li>03/07 - 10:22 - Av. Brasil, Maringá</li>
+        <li>03/07 - 10:55 - Av. Colombo, Maringá</li>
+        <li>03/07 - 11:15 - Rodovia PR-317</li>
+      </ul>
+    </div>
+
+    <div id="cadastro">
+      <h3>Cadastrar Veículo</h3>
+      <input type="text" id="placa" placeholder="Placa do veículo (ex: ABC1234)" />
+      <input type="text" id="modelo" placeholder="Modelo" />
+      <input type="text" id="statusVeiculo" placeholder="Status (ativo/inativo)" />
+      <button onclick="salvarCadastro()">Salvar</button>
+      <button onclick="toggleCadastro()">Cancelar</button>
+      <div id="statusCadastro" style="color: #f88; margin-top: 6px;"></div>
+    </div>
+
+    <div id="mapa"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      set,
+      get,
+      child,
+      push,
+      remove,
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // Configuração do Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBgsdrn_Smo4wfTamRKnBzF2eLJ89MKI2Q",
+      authDomain: "trackgab-1c2a7.firebaseapp.com",
+      projectId: "trackgab-1c2a7",
+      storageBucket: "trackgab-1c2a7.firebasestorage.app",
+      messagingSenderId: "999981691269",
+      appId: "1:999981691269:web:c1122c8d955b0d92aed4ec",
+      databaseURL: "https://trackgab-1c2a7-default-rtdb.firebaseio.com",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getDatabase();
+
+    let mapa;
+    let marcadores = {};
+    let usuarioLogado = null;
+
+    // Função login
+    window.entrar = () => {
+      const email = document.getElementById("email").value.trim();
+      const senha = document.getElementById("senha").value.trim();
+      const status = document.getElementById("status");
+      status.textContent = "";
+
+      if (!email || !senha) {
+        status.textContent = "Informe email e senha.";
+        return;
+      }
+
+      signInWithEmailAndPassword(auth, email, senha)
+        .then((cred) => {
+          usuarioLogado = cred.user;
+          document.getElementById("login").style.display = "none";
+          document.getElementById("painel").style.display = "block";
+          iniciarMapa();
+          carregarVeiculos();
+        })
+        .catch((err) => {
+          status.textContent = "Erro: " + err.message;
+        });
+    };
+
+    // Função logout
+    window.sair = () => {
+      signOut(auth).then(() => {
+        usuarioLogado = null;
+        document.getElementById("painel").style.display = "none";
+        document.getElementById("login").style.display = "flex";
+        limparMarcadores();
+      });
+    };
+
+    // Inicializa o mapa Leaflet
+    function iniciarMapa() {
+      mapa = L.map("mapa").setView([-23.443, -51.9333], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(mapa);
+    }
+
+    // Limpa todos os marcadores do mapa
+    function limparMarcadores() {
+      Object.values(marcadores).forEach((m) => mapa.removeLayer(m));
+      marcadores = {};
+    }
+
+    // Carrega veículos do usuário logado e monitora localizações
+    function carregarVeiculos() {
+      if (!usuarioLogado) return;
+
+      const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}`);
+      onValue(veiculosRef, (snapshot) => {
+        const veiculos = snapshot.val();
+        if (!veiculos) {
+          limparMarcadores();
+          return;
+        }
+
+        limparMarcadores();
+
+        Object.entries(veiculos).forEach(([placa, dados]) => {
+          // Para cada veículo, monitora localização em tempo real
+          const locRef = ref(db, `localizacoes/${placa}`);
+          onValue(
+            locRef,
+            (snap) => {
+              const pos = snap.val();
+              if (!pos) {
+                if (marcadores[placa]) {
+                  mapa.removeLayer(marcadores[placa]);
+                  delete marcadores[placa];
+                }
+                return;
+              }
+
+              const latlng = [pos.lat, pos.lng];
+              if (!marcadores[placa]) {
+                marcadores[placa] = L.marker(latlng)
+                  .addTo(mapa)
+                  .bindPopup(
+                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
+                      dados.status || "desconhecido"
+                    }`
+                  );
+              } else {
+                marcadores[placa].setLatLng(latlng);
+                // Atualiza popup caso queira
+                marcadores[placa]
+                  .getPopup()
+                  .setContent(
+                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${
+                      dados.status || "desconhecido"
+                    }`
+                  );
+              }
+            },
+            { onlyOnce: false }
+          );
+        });
+      });
+    }
+
+    // Botão Localizar (centraliza no primeiro marcador)
+    window.localizar = () => {
+      const keys = Object.keys(marcadores);
+      if (keys.length === 0) {
+        alert("Nenhum veículo para localizar.");
+        return;
+      }
+      const primeiro = marcadores[keys[0]].getLatLng();
+      mapa.setView(primeiro, 15);
+      marcadores[keys[0]].openPopup();
+    };
+
+    // Botão Histórico (simples toggle)
+    window.mostrarHistorico = () => {
+      const h = document.getElementById("historico");
+      h.style.display = h.style.display === "none" ? "block" : "none";
+    };
+
+    // Botão cadastrar veículo (toggle painel)
+    window.toggleCadastro = () => {
+      const c = document.getElementById("cadastro");
+      c.style.display = c.style.display === "none" ? "block" : "none";
+    };
+
+    // Salvar cadastro no Firebase
+    window.salvarCadastro = () => {
+      const placa = document.getElementById("placa").value.trim().toUpperCase();
+      const modelo = document.getElementById("modelo").value.trim();
+      const status = document.getElementById("statusVeiculo").value.trim();
+      const statusCad = document.getElementById("statusCadastro");
+      statusCad.textContent = "";
+
+      if (!placa) {
+        statusCad.textContent = "Informe a placa do veículo.";
+        return;
+      }
+
+      if (!usuarioLogado) {
+        statusCad.textContent = "Usuário não autenticado.";
+        return;
+      }
+
+      const veiculoRef = ref(db, `veiculos/${usuarioLogado.uid}/${placa}`);
+      set(veiculoRef, { modelo, status })
+        .then(() => {
+          statusCad.style.color = "lightgreen";
+          statusCad.textContent = "Veículo cadastrado com sucesso!";
+          document.getElementById("placa").value = "";
+          document.getElementById("modelo").value = "";
+          document.getElementById("statusVeiculo").value = "";
+          setTimeout(() => {
+            statusCad.textContent = "";
+            toggleCadastro();
+          }, 2000);
+        })
+        .catch((e) => {
+          statusCad.style.color = "#f88";
+          statusCad.textContent = "Erro ao salvar: " + e.message;
+        });
+    };
+
+    // Botão bloquear (simples alerta)
+    window.bloquear = () => {
+      alert("Comando de bloqueio enviado (funcionalidade futura).");
+    };
+
+    // Escuta autenticação para logout automático e controle de interface
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        usuarioLogado = null;
+        document.getElementById("painel").style.display = "none";
+        document.getElementById("login").style.display = "flex";
+        limparMarcadores();
+      }
+    });
+  </script>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</body>
+</html>
