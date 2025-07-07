@@ -29,35 +29,86 @@
     height: 100%;
   }
 
-  #login {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-  }
-  #login input, #login button {
-    width: 250px;
-    padding: 12px;
-    border-radius: 6px;
-    border: none;
-    font-size: 1rem;
-  }
-  #login button {
-    background-color: #14e085;
-    color: #000;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-  #login button:hover {
-    background-color: #0e9c64;
-  }
-  #status {
-    height: 24px;
-    color: #f88;
-  }
+/* Login moderno */
+#login {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #0e0e0e, #1b1b1b);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.login-card {
+  background: #111;
+  border-radius: 20px;
+  padding: 40px 30px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 30px rgba(0, 224, 135, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.logo-login {
+  width: 400px;
+  height: auto;
+  margin-bottom: 0.1;
+}
+
+.login-card h2 {
+  color: #00e087;
+  margin-bottom: 25px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 14px 18px;
+  margin: 10px 0;
+  border-radius: 30px;
+  border: 2px solid #00e087;
+  background: #1e1e1e;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: border-color 0.3s;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: #0e9c64;
+}
+
+.login-card button {
+  width: 100%;
+  padding: 14px 18px;
+  margin-top: 20px;
+  border-radius: 30px;
+  border: none;
+  background: linear-gradient(90deg, #00e087, #0e9c64);
+  color: #000;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.login-card button:hover {
+  background: linear-gradient(90deg, #0e9c64, #00e087);
+  transform: scale(1.03);
+}
+
+#status {
+  margin-top: 10px;
+  color: #f88;
+  font-size: 0.9rem;
+}
+
+
 
   /* Ajuste do painel para usar grid sem barra branca */
   #painel {
@@ -260,14 +311,17 @@
 </head>
 <body>
 
-<!-- Login -->
+<!-- Login Moderno -->
 <div id="login">
-  <h2>TrackGab - Login</h2>
-  <input id="email" type="email" placeholder="Email"/>
-  <input id="senha" type="password" placeholder="Senha"/>
-  <button onclick="entrar()">Entrar</button>
-  <div id="status"></div>
+  <div class="login-card">
+    <img src="logo-trackgab.png" alt="Logo TrackGab" class="logo-login"/>
+    <input id="email" type="email" placeholder="Email"/>
+    <input id="senha" type="password" placeholder="Senha"/>
+    <button onclick="entrar()">Entrar</button>
+    <div id="status"></div>
+  </div>
 </div>
+
 
 <!-- Painel -->
 <div id="painel" style="display:none;">
