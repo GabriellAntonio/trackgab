@@ -1,450 +1,723 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>TrackGab - Painel Firebase</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #000;
-      color: white;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    #login {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-    #login input,
-    #login button {
-      margin: 8px;
-      padding: 10px;
-      border-radius: 5px;
-      border: none;
-      width: 220px;
-    }
-    #login button {
-      background-color: #14e085;
-      font-weight: bold;
-      cursor: pointer;
-      color: #000;
-    }
-    #status {
-      color: #f88;
-      height: 20px;
-      margin-top: 5px;
-    }
-    #painel {
-      flex: 1;
-      position: relative;
-      display: none;
-    }
-    #mapa {
-      width: 100%;
-      height: 100%;
-    }
-    .botoes {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .botoes button {
-      padding: 8px 12px;
-      background-color: #00e087;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
-      color: #000;
-    }
-    #cadastro {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 15px;
-      border-radius: 10px;
-      display: none;
-      z-index: 999;
-      width: 280px;
-      color: white;
-    }
-    #cadastro input {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-      border: none;
-    }
-    #historico {
-      position: absolute;
-      top: 70px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 10px;
-      border-radius: 8px;
-      display: none;
-      max-height: 200px;
-      overflow-y: auto;
-      color: white;
-      z-index: 999;
-      width: 250px;
-    }
-    #listaVeiculos {
-      position: absolute;
-      top: 60px;
-      left: 10px;
-      background: rgba(0,0,0,0.8);
-      padding: 10px;
-      border-radius: 8px;
-      max-height: 200px;
-      overflow-y: auto;
-      color: white;
-      z-index: 1000;
-      width: 200px;
-    }
-  </style>
+<meta charset="utf-8"/>
+<title>TrackGab - Painel Firebase</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden; /* Evita scroll e barra cinza */
+  }
+
+  /* Corrigido para que o mapa tenha altura */
+  #conteudo {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #mapa {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+  }
+
+  #login {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+  #login input, #login button {
+    width: 250px;
+    padding: 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 1rem;
+  }
+  #login button {
+    background-color: #14e085;
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  #login button:hover {
+    background-color: #0e9c64;
+  }
+  #status {
+    height: 24px;
+    color: #f88;
+  }
+
+  /* Ajuste do painel para usar grid sem barra branca */
+  #painel {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: 100vh;
+    transition: grid-template-columns 0.3s ease;
+    overflow: hidden; /* para evitar scroll horizontal */
+  }
+
+  /* Quando o menu estiver oculto, esconde o espaço */
+  #painel.menu-oculto {
+    grid-template-columns: 0 1fr;
+  }
+
+  /* Menu lateral */
+  #menu-lateral {
+    position: relative;
+    height: 100vh;
+    overflow-y: auto;
+    background: #111;
+    padding: 15px;
+    box-sizing: border-box;
+    border-radius: 0 10px 10px 0;
+    transition: transform 0.3s ease;
+  }
+
+  /* Desliza para fora */
+  #menu-lateral.oculto {
+    transform: translateX(-100%);
+  }
+
+/* Botão menu fixo */
+#toggle-menu {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 3000; /* manter acima do menu */
+  width: 60px; /* menor largura */
+  height: 40px;
+  padding: 0 10px;
+  background: #222;
+  color: #0e9c64;
+  font-weight: bold;
+  font-size: 1.3rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+  cursor: pointer;
+  user-select: none;
+  gap: 6px;
+}
+
+/* Menu lateral */
+#menu-lateral {
+  position: relative;
+  height: 100vh;
+  overflow-y: auto;
+  background: #111;
+  padding: 60px 15px 15px 15px; /* padding-top maior para "empurrar" o conteúdo pra baixo */
+  box-sizing: border-box;
+  border-radius: 0 10px 10px 0;
+  transition: transform 0.3s ease;
+}
+
+/* Itens do menu */
+#menu-lateral button {
+  width: 100%;
+  padding: 14px 20px;
+  margin: 10px 0;
+  border-radius: 25px;
+  border: none;
+  background: linear-gradient(90deg, #00e087, #0e9c64);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 224, 135, 0.6);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+#menu-lateral button:hover {
+  background: linear-gradient(90deg, #0e9c64, #00e087);
+  box-shadow: 0 8px 20px rgba(0, 224, 135, 0.9);
+}
+
+/* Input busca */
+#buscaPlaca {
+  width: 100%;
+  padding: 12px 15px;
+  margin: 10px 0;
+  border-radius: 25px;
+  border: 2px solid #00e087;
+  background: #111;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+}
+
+#buscaPlaca:focus {
+  border-color: #0e9c64;
+  outline: none;
+}
+
+/* Lista veículos */
+#listaVeiculos {
+  background: rgba(0, 0, 0, 0.8);
+  color: #eee;
+  padding: 12px 18px;
+  margin-top: 12px;
+  border-radius: 12px;
+  font-size: 1rem;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 224, 135, 0.6);
+  font-weight: 700;
+}
+
+
+  /* Histórico, cadastro e outros blocos removidos (usaremos modais) */
+
+  /* Modal geral */
+  .modal {
+    display: none; /* Escondido por padrão */
+    position: fixed;
+    z-index: 3000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6);
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-content {
+    background-color: #111;
+    padding: 20px;
+    border-radius: 15px;
+    width: 350px;
+    max-width: 100%;
+    box-shadow: 0 0 15px #0e9c64;
+    color: #eee;
+    position: relative;
+    font-family: Arial, sans-serif;
+  }
+
+  .modal-content .close {
+    position: absolute;
+    top: 8px;
+    right: 15px;
+    color: #0e9c64;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  /* Inputs e selects dentro dos modais */
+  .modal-content input,
+  .modal-content select,
+  .modal-content button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 25px;
+    border: 2px solid #00e087;
+    background: #111;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+    cursor: pointer;
+  }
+  .modal-content input:focus,
+  .modal-content select:focus {
+    border-color: #0e9c64;
+    outline: none;
+  }
+  .modal-content button {
+    background: linear-gradient(90deg, #00e087, #0e9c64);
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 3px 8px rgba(0, 224, 135, 0.6);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .modal-content button:hover {
+    background: linear-gradient(90deg, #0e9c64, #00e087);
+    box-shadow: 0 6px 15px rgba(0, 224, 135, 0.9);
+  }
+</style>
 </head>
 <body>
-  <div id="login">
-    <h2>TrackGab - Login</h2>
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="senha" placeholder="Senha" />
-    <button onclick="entrar()">Entrar</button>
-    <div id="status"></div>
-  </div>
 
-  <div id="painel">
-    <div class="botoes">
-      <button onclick="localizar()">📍 Localizar Agora</button>
-      <button onclick="mostrarHistorico()">🗺️ Histórico</button>
-      <button onclick="mostrarTodosVeiculos()">🗺️ Mostrar Todos</button>
-      <button onclick="toggleCadastro()">➕ Cadastrar Veículo</button>
-      <button onclick="bloquear()">🔒 Bloquear Motor</button>
-      <button onclick="sair()">🚪 Sair</button>
-    </div>
-    
-    <div id="historico">
-      <ul id="listaHistorico" style="padding-left: 20px; margin: 0;"></ul>
-    </div>
+<!-- Login -->
+<div id="login">
+  <h2>TrackGab - Login</h2>
+  <input id="email" type="email" placeholder="Email"/>
+  <input id="senha" type="password" placeholder="Senha"/>
+  <button onclick="entrar()">Entrar</button>
+  <div id="status"></div>
+</div>
+
+<!-- Painel -->
+<div id="painel" style="display:none;">
+  <!-- Botão menu fixo -->
+  <div id="toggle-menu" onclick="toggleMenu()">Menu</div>
+
+  <!-- Menu lateral -->
+  <div id="menu-lateral">
+    <button onclick="mostrarTodosVeiculos()">Mostrar Todos</button>
+    <button onclick="filtrarVeiculos('ativo')">🟢 Ativos</button>
+    <button onclick="filtrarVeiculos('inativo')">🔴 Inativos</button>
+    <button onclick="abrirModalHistorico()">🗺️ Histórico</button>
+    <button onclick="abrirModalCadastro()">➕ Cadastrar Veículo</button>
+    <button onclick="bloquear()">🔒 Bloquear Motor</button>
+    <button onclick="sair()">🚪 Sair</button>
+
+    <input id="buscaPlaca" type="text" placeholder="Buscar placa..."/>
+    <button onclick="buscarPlaca()">🔍 Buscar</button>
 
     <div id="listaVeiculos"></div>
-
-    <div id="cadastro">
-      <h3>Cadastrar Veículo</h3>
-      <input type="text" id="placa" placeholder="Placa do veículo (ex: ABC1234)" />
-      <input type="text" id="modelo" placeholder="Modelo" />
-      <input type="text" id="statusVeiculo" placeholder="Status (ativo/inativo)" />
-      <button onclick="salvarCadastro()">Salvar</button>
-      <button onclick="toggleCadastro()">Cancelar</button>
-      <div id="statusCadastro" style="color: #f88; margin-top: 6px;"></div>
-    </div>
-
-    <div id="mapa"></div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getAuth,
-      signInWithEmailAndPassword,
-      signOut,
-      onAuthStateChanged,
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
-      getDatabase,
-      ref,
-      onValue,
-      set,
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  <!-- Conteúdo mapa -->
+  <div id="conteudo">
+    <div id="mapa"></div>
+  </div>
+</div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBgsdrn_Smo4wfTamRKnBzF2eLJ89MKI2Q",
-      authDomain: "trackgab-1c2a7.firebaseapp.com",
-      projectId: "trackgab-1c2a7",
-      storageBucket: "trackgab-1c2a7.firebasestorage.app",
-      messagingSenderId: "999981691269",
-      appId: "1:999981691269:web:c1122c8d955b0d92aed4ec",
-      databaseURL: "https://trackgab-1c2a7-default-rtdb.firebaseio.com",
-    };
+<!-- Modal de Cadastro -->
+<div id="modalCadastro" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="fecharCadastro()">&times;</span>
+    <h3>Cadastrar Veículo</h3>
+    <input id="placa" placeholder="Placa (ex: ABC1234)"/>
+    <input id="modelo" placeholder="Modelo"/>
+    <input id="statusVeiculo" placeholder="Status (ativo/inativo)"/>
+    <button onclick="salvarCadastro()">Salvar</button>
+    <div id="statusCadastro"></div>
+  </div>
+</div>
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth();
-    const db = getDatabase();
+<!-- Modal de Histórico -->
+<div id="modalHistorico" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="fecharHistorico()">&times;</span>
+    <h3>Histórico</h3>
+    <select id="seletorPlacaHistorico" onchange="mostrarHistoricoPorPlaca()">
+      <option value="">Selecione a placa</option>
+    </select>
+    <button onclick="exportarHistoricoCSV()">Exportar CSV</button>
+    <ul id="listaHistorico"></ul>
+  </div>
+</div>
 
-    let mapa;
-    let marcadores = {};
-    let usuarioLogado = null;
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    signOut,
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    getDatabase,
+    ref,
+    onValue,
+    set,
+    off,
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // Ícones para estado online e offline
-    const iconOnline = L.icon({
-      iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
+  // Config Firebase - ajuste conforme seu projeto
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgsdrn_Smo4wfTamRKnBzF2eLJ89MKI2Q",
+    authDomain: "trackgab-1c2a7.firebaseapp.com",
+    projectId: "trackgab-1c2a7",
+    storageBucket: "trackgab-1c2a7.appspot.com",
+    messagingSenderId: "999981691269",
+    appId: "1:999981691269:web:c1122c8d955b0d92aed4ec",
+    databaseURL: "https://trackgab-1c2a7-default-rtdb.firebaseio.com",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth();
+  const db = getDatabase();
+
+  let usuarioLogado = null;
+  let mapa = null;
+  let marcadores = {};
+  let intervaloAtualizacao = null;
+
+  // Ícones customizados
+  const iconAtivo = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+  const iconInativo = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/1828/1828665.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+
+  // Tempo limite para considerar veículo offline (5 minutos)
+  const TEMPO_OFFLINE_MS = 5 * 60 * 1000;
+
+  // Elementos
+  const loginDiv = document.getElementById("login");
+  const painelDiv = document.getElementById("painel");
+  const statusDiv = document.getElementById("status");
+  const listaVeiculosDiv = document.getElementById("listaVeiculos");
+  const statusCadastroDiv = document.getElementById("statusCadastro");
+  const seletorPlacaHistorico = document.getElementById("seletorPlacaHistorico");
+  const listaHistoricoUl = document.getElementById("listaHistorico");
+
+  const modalCadastro = document.getElementById("modalCadastro");
+  const modalHistorico = document.getElementById("modalHistorico");
+
+  window.entrar = function () {
+    const email = document.getElementById("email").value.trim();
+    const senha = document.getElementById("senha").value.trim();
+    statusDiv.textContent = "";
+
+    if (!email || !senha) {
+      statusDiv.textContent = "Informe email e senha.";
+      return;
+    }
+
+    signInWithEmailAndPassword(auth, email, senha)
+      .then((cred) => {
+        usuarioLogado = cred.user;
+        loginDiv.style.display = "none";
+        painelDiv.style.display = "grid";
+        iniciarMapa();
+        carregarVeiculos();
+        carregarSeletorHistorico();
+
+        if(intervaloAtualizacao) clearInterval(intervaloAtualizacao);
+        intervaloAtualizacao = setInterval(carregarVeiculos, 30000);
+      })
+      .catch((err) => {
+        statusDiv.textContent = "Erro: " + err.message;
+      });
+  };
+
+  window.sair = function () {
+    signOut(auth).then(() => {
+      usuarioLogado = null;
+      loginDiv.style.display = "flex";
+      painelDiv.style.display = "none";
+      limparMarcadores();
+      if(intervaloAtualizacao) clearInterval(intervaloAtualizacao);
+      limparMapa();
+      limparHistorico();
+      fecharCadastro();
+      fecharHistorico();
     });
-    const iconOffline = L.icon({
-      iconUrl: 'https://cdn-icons-png.flaticon.com/512/1828/1828665.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    });
+  };
 
-    // Tempo para considerar offline (5 minutos)
-    const TEMPO_OFFLINE_MS = 5 * 60 * 1000;
-
-    window.entrar = () => {
-      const email = document.getElementById("email").value.trim();
-      const senha = document.getElementById("senha").value.trim();
-      const status = document.getElementById("status");
-      status.textContent = "";
-
-      if (!email || !senha) {
-        status.textContent = "Informe email e senha.";
-        return;
-      }
-
-      signInWithEmailAndPassword(auth, email, senha)
-        .then((cred) => {
-          usuarioLogado = cred.user;
-          document.getElementById("login").style.display = "none";
-          document.getElementById("painel").style.display = "block";
-          iniciarMapa();
-          carregarVeiculos();
-        })
-        .catch((err) => {
-          status.textContent = "Erro: " + err.message;
-        });
-    };
-
-    window.sair = () => {
-      signOut(auth).then(() => {
-        usuarioLogado = null;
-        document.getElementById("painel").style.display = "none";
-        document.getElementById("login").style.display = "flex";
-        limparMarcadores();
-      });
-    };
-
-    window.localizar = () => {
-      const keys = Object.keys(marcadores);
-      if (keys.length === 0) {
-        alert("Nenhum veículo para localizar.");
-        return;
-      }
-      const primeiro = marcadores[keys[0]].getLatLng();
-      mapa.setView(primeiro, 15);
-      marcadores[keys[0]].openPopup();
-    };
-
-    window.mostrarHistorico = () => {
-      const h = document.getElementById("historico");
-      h.style.display = h.style.display === "none" ? "block" : "none";
-
-      const lista = document.getElementById("listaHistorico");
-      lista.innerHTML = "";
-
-      const placas = Object.keys(marcadores);
-      if (placas.length === 0) {
-        lista.innerHTML = "<li>Nenhum veículo disponível.</li>";
-        return;
-      }
-
-      const placa = placas[0];
-      const histRef = ref(db, `historico/${placa}`);
-
-      onValue(histRef, (snap) => {
-        const dados = snap.val();
-        lista.innerHTML = "";
-
-        if (!dados) {
-          lista.innerHTML = "<li>Sem registros no histórico.</li>";
-          return;
-        }
-
-        const entradas = Object.values(dados).sort((a, b) => b.timestamp - a.timestamp);
-
-        entradas.forEach((item) => {
-          const data = new Date(item.timestamp);
-          const horario = data.toLocaleString("pt-BR");
-          lista.innerHTML += `<li>${horario} - (${item.lat.toFixed(5)}, ${item.lng.toFixed(5)})</li>`;
-        });
-      });
-    };
-
-    window.toggleCadastro = () => {
-      const c = document.getElementById("cadastro");
-      c.style.display = c.style.display === "none" ? "block" : "none";
-    };
-
-    window.salvarCadastro = () => {
-      const placa = document.getElementById("placa").value.trim().toUpperCase();
-      const modelo = document.getElementById("modelo").value.trim();
-      const status = document.getElementById("statusVeiculo").value.trim();
-      const statusCad = document.getElementById("statusCadastro");
-      statusCad.textContent = "";
-
-      if (!placa) {
-        statusCad.textContent = "Informe a placa do veículo.";
-        return;
-      }
-
-      if (!usuarioLogado) {
-        statusCad.textContent = "Usuário não autenticado.";
-        return;
-      }
-
-      const veiculoRef = ref(db, `veiculos/${usuarioLogado.uid}/${placa}`);
-      set(veiculoRef, { modelo, status })
-        .then(() => {
-          statusCad.style.color = "lightgreen";
-          statusCad.textContent = "Veículo cadastrado com sucesso!";
-          document.getElementById("placa").value = "";
-          document.getElementById("modelo").value = "";
-          document.getElementById("statusVeiculo").value = "";
-          setTimeout(() => {
-            statusCad.textContent = "";
-            toggleCadastro();
-          }, 2000);
-        })
-        .catch((e) => {
-          statusCad.style.color = "#f88";
-          statusCad.textContent = "Erro ao salvar: " + e.message;
-        });
-    };
-
-    window.bloquear = () => {
-      alert("Comando de bloqueio enviado (funcionalidade futura).");
-    };
-
-    function iniciarMapa() {
-      mapa = L.map("mapa").setView([-23.443, -51.9333], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-      }).addTo(mapa);
+  function iniciarMapa() {
+    if (mapa) {
+      mapa.remove();
+      mapa = null;
     }
+    mapa = L.map("mapa").setView([-23.443, -51.9333], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(mapa);
+  }
 
-    function limparMarcadores() {
-      Object.values(marcadores).forEach((m) => mapa.removeLayer(m));
-      marcadores = {};
-    }
+  function limparMapa() {
+    if (!mapa) return;
+    Object.values(marcadores).forEach((m) => mapa.removeLayer(m));
+    marcadores = {};
+  }
 
-    function carregarVeiculos() {
-      if (!usuarioLogado) return;
+  function limparMarcadores() {
+    limparMapa();
+  }
 
-      const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}`);
-      onValue(veiculosRef, (snapshot) => {
-        const veiculos = snapshot.val();
-        if (!veiculos) {
-          limparMarcadores();
-          atualizarListaVeiculos(null);
-          return;
-        }
+  function limparHistorico() {
+    listaHistoricoUl.innerHTML = "";
+  }
 
-        limparMarcadores();
+  function carregarVeiculos(filtroStatus = null) {
+    if (!usuarioLogado) return;
+    limparMapa();
+    listaVeiculosDiv.innerHTML = "<i>Carregando veículos...</i>";
 
-        Object.entries(veiculos).forEach(([placa, dados]) => {
-          const locRef = ref(db, `localizacoes/${placa}`);
-          onValue(
-            locRef,
-            (snap) => {
-              const pos = snap.val();
-              if (!pos) {
-                if (marcadores[placa]) {
-                  mapa.removeLayer(marcadores[placa]);
-                  delete marcadores[placa];
-                }
-                return;
-              }
-
-              const latlng = [pos.lat, pos.lng];
-              const agora = Date.now();
-              const offline = agora - pos.timestamp > TEMPO_OFFLINE_MS;
-
-              // Cria ou atualiza marcador com ícone diferente para offline
-              if (!marcadores[placa]) {
-                marcadores[placa] = L.marker(latlng, { icon: offline ? iconOffline : iconOnline })
-                  .addTo(mapa)
-                  .bindPopup(
-                    `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${dados.status || "desconhecido"}<br>Última atualização: ${new Date(pos.timestamp).toLocaleString()}`
-                  );
-              } else {
-                marcadores[placa].setLatLng(latlng);
-                marcadores[placa].setIcon(offline ? iconOffline : iconOnline);
-                marcadores[placa].getPopup().setContent(
-                  `<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${dados.status || "desconhecido"}<br>Última atualização: ${new Date(pos.timestamp).toLocaleString()}`
-                );
-              }
-            },
-            { onlyOnce: false }
-          );
-        });
-
-        atualizarListaVeiculos(veiculos);
-      });
-    }
-
-    function atualizarListaVeiculos(veiculos) {
-      const container = document.getElementById("listaVeiculos");
-      container.innerHTML = "";
-
-      if (!veiculos || Object.keys(veiculos).length === 0) {
-        container.innerHTML = "<p>Nenhum veículo cadastrado.</p>";
+    const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}`);
+    off(veiculosRef);
+    onValue(veiculosRef, (snapshot) => {
+      const veiculos = snapshot.val();
+      if (!veiculos) {
+        listaVeiculosDiv.innerHTML = "<i>Nenhum veículo cadastrado.</i>";
         return;
       }
 
-      Object.entries(veiculos).forEach(([placa, dados]) => {
-        const btn = document.createElement("button");
-        btn.textContent = `${placa} - ${dados.modelo || ""}`;
-        btn.style.width = "100%";
-        btn.style.marginBottom = "6px";
-        btn.style.cursor = "pointer";
-        btn.onclick = () => {
-          if (marcadores[placa]) {
-            mapa.setView(marcadores[placa].getLatLng(), 17);
-            marcadores[placa].openPopup();
-          } else {
-            alert("Localização do veículo ainda não disponível.");
+      listaVeiculosDiv.innerHTML = "";
+
+      for (const placa in veiculos) {
+        const dados = veiculos[placa];
+        const status = (dados.status || "desconhecido").toLowerCase();
+
+        if (filtroStatus && status !== filtroStatus.toLowerCase()) continue;
+
+        const locRef = ref(db, `localizacoes/${placa}`);
+        onValue(locRef, (snap) => {
+          const pos = snap.val();
+          if (!pos) {
+            // sem localização
+            if (marcadores[placa]) {
+              mapa.removeLayer(marcadores[placa]);
+              delete marcadores[placa];
+            }
+            return;
           }
-        };
-        container.appendChild(btn);
-      });
+
+          const latlng = [pos.lat, pos.lng];
+          const agora = Date.now();
+          const offline = agora - pos.timestamp > TEMPO_OFFLINE_MS;
+
+          // Escolhe ícone por status e offline
+          let iconeAtual = iconAtivo;
+          if (offline) iconeAtual = iconInativo;
+          else if (status === "ativo") iconeAtual = iconAtivo;
+          else if (status === "inativo") iconeAtual = iconInativo;
+
+          if (!marcadores[placa]) {
+            marcadores[placa] = L.marker(latlng, { icon: iconeAtual })
+              .addTo(mapa)
+              .bindPopup(`<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${status}`);
+          } else {
+            marcadores[placa].setLatLng(latlng);
+            marcadores[placa].setIcon(iconeAtual);
+            marcadores[placa].getPopup().setContent(`<b>${placa}</b><br>${dados.modelo || ""}<br>Status: ${status}<br>Última atualização: ${new Date(pos.timestamp).toLocaleString()}`);
+          }
+
+          // Atualiza lista lateral
+          atualizarListaVeiculos(veiculos);
+        });
+      }
+    }, { onlyOnce: true });
+  }
+
+  window.mostrarTodosVeiculos = function () {
+    carregarVeiculos(null);
+  };
+
+  window.filtrarVeiculos = function (status) {
+    carregarVeiculos(status);
+  };
+
+  window.buscarPlaca = function () {
+    const placaBusca = document.getElementById("buscaPlaca").value.trim().toUpperCase();
+    if (!placaBusca) {
+      alert("Digite uma placa para buscar");
+      return;
     }
 
-    function mostrarTodosVeiculos() {
-      const grupo = L.featureGroup(Object.values(marcadores));
-      if (grupo.getLayers().length === 0) {
-        alert("Nenhum veículo para mostrar.");
+    if (!usuarioLogado) return;
+
+    const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}/${placaBusca}`);
+    onValue(veiculosRef, (snap) => {
+      const veiculo = snap.val();
+      if (!veiculo) {
+        alert("Veículo não encontrado");
         return;
       }
-      mapa.fitBounds(grupo.getBounds().pad(0.2));
+      // Centraliza no mapa se localização existir
+      const locRef = ref(db, `localizacoes/${placaBusca}`);
+      onValue(locRef, (locSnap) => {
+        const pos = locSnap.val();
+        if (pos) {
+          mapa.setView([pos.lat, pos.lng], 16);
+          if (marcadores[placaBusca]) {
+            marcadores[placaBusca].openPopup();
+          }
+        }
+      }, { onlyOnce: true });
+    }, { onlyOnce: true });
+  };
+
+  function atualizarListaVeiculos(veiculos) {
+    listaVeiculosDiv.innerHTML = "";
+    for (const placa in veiculos) {
+      const dados = veiculos[placa];
+      listaVeiculosDiv.innerHTML += `<div><b>${placa}</b> - ${dados.modelo || ""} - Status: ${dados.status || ""}</div>`;
     }
-    window.mostrarTodosVeiculos = mostrarTodosVeiculos;
+  }
 
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        usuarioLogado = null;
-        document.getElementById("painel").style.display = "none";
-        document.getElementById("login").style.display = "flex";
-        limparMarcadores();
-      }
+  window.bloquear = function () {
+    alert("Função Bloquear Motor ainda não implementada.");
+  };
+
+  // MODAL DE CADASTRO
+  window.abrirModalCadastro = function () {
+    modalCadastro.style.display = "flex";
+    statusCadastroDiv.textContent = "";
+    // Limpa campos
+    document.getElementById("placa").value = "";
+    document.getElementById("modelo").value = "";
+    document.getElementById("statusVeiculo").value = "";
+  };
+  window.fecharCadastro = function () {
+    modalCadastro.style.display = "none";
+  };
+
+  window.salvarCadastro = function () {
+    if (!usuarioLogado) {
+      alert("Usuário não autenticado");
+      return;
+    }
+    const placa = document.getElementById("placa").value.trim().toUpperCase();
+    const modelo = document.getElementById("modelo").value.trim();
+    const status = document.getElementById("statusVeiculo").value.trim().toLowerCase();
+
+    if (!placa || !modelo || !status) {
+      statusCadastroDiv.textContent = "Preencha todos os campos.";
+      return;
+    }
+    if (!["ativo", "inativo"].includes(status)) {
+      statusCadastroDiv.textContent = "Status deve ser 'ativo' ou 'inativo'.";
+      return;
+    }
+
+    const veiculoRef = ref(db, `veiculos/${usuarioLogado.uid}/${placa}`);
+    set(veiculoRef, {
+      modelo,
+      status,
+    }).then(() => {
+      statusCadastroDiv.textContent = "Veículo cadastrado com sucesso!";
+      carregarVeiculos();
+      carregarSeletorHistorico();
+      setTimeout(fecharCadastro, 1500);
+    }).catch((e) => {
+      statusCadastroDiv.textContent = "Erro ao salvar: " + e.message;
     });
-  </script>
+  };
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  // MODAL DE HISTÓRICO
+  window.abrirModalHistorico = function () {
+    if (!usuarioLogado) {
+      alert("Usuário não autenticado");
+      return;
+    }
+    modalHistorico.style.display = "flex";
+    limparHistorico();
+    carregarSeletorHistorico();
+  };
+  window.fecharHistorico = function () {
+    modalHistorico.style.display = "none";
+    limparHistorico();
+  };
+
+  function carregarSeletorHistorico() {
+    if (!usuarioLogado) return;
+    seletorPlacaHistorico.innerHTML = '<option value="">Selecione a placa</option>';
+
+    const veiculosRef = ref(db, `veiculos/${usuarioLogado.uid}`);
+    onValue(veiculosRef, (snapshot) => {
+      const veiculos = snapshot.val();
+      if (!veiculos) return;
+
+      for (const placa in veiculos) {
+        const opt = document.createElement("option");
+        opt.value = placa;
+        opt.textContent = placa;
+        seletorPlacaHistorico.appendChild(opt);
+      }
+    }, { onlyOnce: true });
+  }
+
+  window.mostrarHistoricoPorPlaca = function () {
+    limparHistorico();
+    const placa = seletorPlacaHistorico.value;
+    if (!placa) return;
+    if (!usuarioLogado) return;
+
+    const histRef = ref(db, `historico/${placa}`);
+    onValue(histRef, (snapshot) => {
+      const dados = snapshot.val();
+      listaHistoricoUl.innerHTML = "";
+      if (!dados) {
+        listaHistoricoUl.innerHTML = "<li>Sem histórico para essa placa.</li>";
+        return;
+      }
+      for (const key in dados) {
+        const item = dados[key];
+        const li = document.createElement("li");
+        li.textContent = `${new Date(item.timestamp).toLocaleString()}: Lat ${item.lat}, Lng ${item.lng}`;
+        listaHistoricoUl.appendChild(li);
+      }
+    }, { onlyOnce: true });
+  };
+
+  window.exportarHistoricoCSV = function () {
+    const placa = seletorPlacaHistorico.value;
+    if (!placa) {
+      alert("Selecione uma placa primeiro.");
+      return;
+    }
+    if (!usuarioLogado) return;
+
+    const histRef = ref(db, `historico/${placa}`);
+    onValue(histRef, (snapshot) => {
+      const dados = snapshot.val();
+      if (!dados) {
+        alert("Sem histórico para exportar.");
+        return;
+      }
+
+      let csv = "Timestamp,Latitude,Longitude\n";
+      for (const key in dados) {
+        const item = dados[key];
+        csv += `${new Date(item.timestamp).toISOString()},${item.lat},${item.lng}\n`;
+      }
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `historico_${placa}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, { onlyOnce: true });
+  };
+
+  // Toggle menu lateral
+  const painel = document.getElementById("painel");
+  const menuLateral = document.getElementById("menu-lateral");
+  window.toggleMenu = function () {
+    if (painel.classList.contains("menu-oculto")) {
+      painel.classList.remove("menu-oculto");
+      menuLateral.classList.remove("oculto");
+    } else {
+      painel.classList.add("menu-oculto");
+      menuLateral.classList.add("oculto");
+    }
+  };
+
+  // Fecha modais ao clicar fora do conteúdo
+  window.onclick = function(event) {
+    if (event.target === modalCadastro) {
+      fecharCadastro();
+    } else if (event.target === modalHistorico) {
+      fecharHistorico();
+    }
+  };
+
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
