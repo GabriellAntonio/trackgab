@@ -5,6 +5,7 @@
 <title>TrackGab - Painel Firebase</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+<link rel="icon" type="image/png" href="logo-trackgab.ico">
 <style>
   * {
     box-sizing: border-box;
@@ -317,7 +318,7 @@
     <img src="logo-trackgab.png" alt="Logo TrackGab" class="logo-login"/>
     <input id="email" type="email" placeholder="Email"/>
     <input id="senha" type="password" placeholder="Senha"/>
-    <button onclick="entrar()">Entrar</button>
+    <button id="btnEntrar">Entrar</button>
     <div id="status"></div>
   </div>
 </div>
@@ -603,11 +604,43 @@
     }, { onlyOnce: true });
   };
 
+    // NOVO: Centralizar no veículo pelo botão "📍 Localizar"
+  window.centralizarVeiculo = function (placa) {
+    const locRef = ref(db, `localizacoes/${placa}`);
+    onValue(locRef, (snap) => {
+      const pos = snap.val();
+      if (!pos) {
+        alert("Localização não disponível para esta placa.");
+        return;
+      }
+      mapa.setView([pos.lat, pos.lng], 16);
+      if (marcadores[placa]) {
+        marcadores[placa].openPopup();
+      }
+    }, { onlyOnce: true });
+  }
+
+  // Atualizar lista lateral com botão de localização
   function atualizarListaVeiculos(veiculos) {
     listaVeiculosDiv.innerHTML = "";
     for (const placa in veiculos) {
       const dados = veiculos[placa];
-      listaVeiculosDiv.innerHTML += `<div><b>${placa}</b> - ${dados.modelo || ""} - Status: ${dados.status || ""}</div>`;
+      listaVeiculosDiv.innerHTML += `
+        <div style="margin-bottom: 10px;">
+          <b>${placa}</b> - ${dados.modelo || ""} - Status: ${dados.status || ""}
+          <button onclick="centralizarVeiculo('${placa}')" style="
+            margin-top: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #0e9c64;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 5px;
+          ">📍 Localizar</button>
+        </div>
+      `;
     }
   }
 
@@ -769,6 +802,8 @@
       fecharHistorico();
     }
   };
+
+document.getElementById("btnEntrar").addEventListener("click", entrar);
 
 </script>
 
